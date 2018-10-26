@@ -11,3 +11,4 @@ zones.json
 db/
 _build/
 rebar.lock
+_checkouts/

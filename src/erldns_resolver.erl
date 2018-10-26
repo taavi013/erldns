@@ -43,6 +43,7 @@ resolve(Message, AuthorityRecords, Host, [Question|_]) -> resolve(Message, Autho
 resolve(Message, AuthorityRecords, Host, Question) when is_record(Question, dns_query) ->
   case Question#dns_query.type of
     ?DNS_TYPE_RRSIG ->
+      lager:info("RR Question => ~p~n", [Question]),
       Message#dns_message{ra = false, ad = false, cd = false, rc = ?DNS_RCODE_REFUSED};
     Qtype ->
       check_dnssec(Message, Host, Question),

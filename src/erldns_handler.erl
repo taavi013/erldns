@@ -62,7 +62,7 @@ init([]) ->
   {ok, #state{handlers=[]}}.
 
 handle_call({register_handler, RecordTypes, Module}, _, State) ->
-  %lager:info("Registered handler (module: ~p, types: ~p)", [Module, RecordTypes]),
+  lager:info("Registered handler (module: ~p, types: ~p)", [Module, RecordTypes]),
   {reply, ok, State#state{handlers = State#state.handlers ++ [{Module, RecordTypes}]}};
 handle_call({get_handlers}, _, State) ->
   {reply, State#state.handlers, State}.
@@ -104,7 +104,7 @@ handle(Message, Host, {throttled, Host, _ReqCount}) ->
 %% append the SOA record if it is a zone transfer and complete the response
 %% by filling out count-related header fields.
 handle(Message, Host, _) ->
-  %lager:debug("Questions: ~p", [Message#dns_message.questions]),
+  lager:debug("Questions: ~p", [Message#dns_message.questions]),
   erldns_events:notify({start_handle, [{host, Host}, {message, Message}]}),
   Response = folsom_metrics:histogram_timed_update(request_handled_histogram, ?MODULE, do_handle, [Message, Host]),
   erldns_events:notify({end_handle, [{host, Host}, {message, Message}, {response, Response}]}),
@@ -132,12 +132,15 @@ handle_message(Message, Host) ->
 %% is no SOA record for this zone), then answer immediately setting the AA flag to false.
 %% If erldns is configured to use root hints then those will be added to the response.
 -spec(handle_packet_cache_miss(Message :: dns:message(), AuthorityRecords :: dns:authority(), Host :: dns:ip()) -> dns:message()).
-handle_packet_cache_miss(Message, [], _Host) ->
+handle_packet_cache_miss(Message, [], Host) ->
+  lager:debug("Message => ~p~n", [Message]),
+  {Authority, Additional} = erldns_records:root_hints(),
+  erldns_recursive:resolve(Message, Authority, Host),
   case erldns_config:use_root_hints() of
     true ->
-      {Authority, Additional} = erldns_records:root_hints(),
       Message#dns_message{aa = false, rc = ?DNS_RCODE_REFUSED, authority = Authority, additional = Additional};
     _ ->
+      lager:debug("No SOA record in cache for ~p", [Message]),
       Message#dns_message{aa = false, rc = ?DNS_RCODE_REFUSED}
   end;
 
