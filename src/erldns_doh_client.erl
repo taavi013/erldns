@@ -55,6 +55,8 @@ init([Server, Port, QueryString]) ->
 
 handle_call({query, _Query}, _From, #state{connection=ConnPid, query_string=QueryString} = State) ->
     Questions = [{dns_query,<<"www.delfi.ee">>,1,?DNS_TYPE_SOA}],
+    % google supports ECS, Cloudflare does not
+    DnsOpt = {dns_optrr,4096,0,0,false, [{dns_opt_ecs,inet,25,0,<<1,2,3,0>>}]},
     Message = #dns_message{id = dns:random_id(), qr = false, oc = ?DNS_OPCODE_QUERY,
 			   aa = false, tc = false, rd = true, ra = false, ad = false, cd = false,
 			   rc = ?DNS_RCODE_NOERROR,
@@ -77,7 +79,7 @@ handle_cast(Msg, State) ->
     lager:debug("~s:~s(~p, ~p)~n", [?MODULE, ?FUNCTION_NAME, Msg, State]),
     {noreply, State}.
 
-% Strean has finished sending
+% Stream has finished sending
 handle_info({gun_response, _ConnPid, _StreamRef, fin, _Status, _Headers} = Info, State) ->
     lager:debug("~s:~s(~p, ~p)~n", [?MODULE, ?FUNCTION_NAME, Info, State]),
     {noreply, State};
