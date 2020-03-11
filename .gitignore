@@ -1,3 +1,5 @@
+rebar3
+.rebar3
 *.beam
 *.dump
 erldns.config
@@ -6,9 +8,10 @@ log/
 ebin/
 deps/*
 rel/erl-dns
-zones.json
+priv/_*.json
 .eunit/
 db/
 _build/
 rebar.lock
 _checkouts/
+Mnesia.nonode@nohost/

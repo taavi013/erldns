@@ -15,18 +15,19 @@
 %% @doc Resolve a DNS query.
 -module(erldns_resolver).
 
--include_lib("dns/include/dns.hrl").
+-include_lib("dns_erlang/include/dns.hrl").
 -include("erldns.hrl").
 
 -export([resolve/3]).
 
 -callback get_records_by_name(dns:dname()) -> [dns:rr()].
 
+
+
 %% @doc Resolve the questions in the message.
 -spec resolve(Message :: dns:message(), AuthorityRecords :: [dns:rr()], Host :: dns:ip()) -> dns:message().
 resolve(Message, AuthorityRecords, Host) ->
   resolve(Message, AuthorityRecords, Host, Message#dns_message.questions).
-
 
 %% There were no questions in the message so just return it.
 -spec resolve(dns:message(), [dns:rr()], dns:ip(), dns:questions() | dns:query()) -> dns:message().
@@ -56,12 +57,26 @@ resolve(Message, AuthorityRecords, Host, Question) when is_record(Question, dns_
 %% If the request required DNSSEC, apply the DNSSEC records
 -spec resolve(dns:message(), [dns:rr()], dns:dname(), dns:type(), dns:ip()) -> dns:message().
 resolve(Message, AuthorityRecords, Qname, Qtype, Host) ->
-  Zone = erldns_zone_cache:find_zone(Qname, lists:last(AuthorityRecords)), % Zone lookup
+  Zone = erldns_zone_cache:find_zone(Qname, lists:last(AuthorityRecords)), 
   Records = resolve(Message, Qname, Qtype, Zone, Host, _CnameChain = []),
   sort_answers(erldns_dnssec:handle(additional_processing(erldns_records:rewrite_soa_ttl(Records), Host, Zone), Zone, Qname, Qtype)).
 
 sort_answers(Message) ->
-  Message#dns_message{answers = lists:usort(Message#dns_message.answers)}.
+  Message#dns_message{answers = lists:usort(fun sort_fun/2, Message#dns_message.answers)}.
+
+-spec sort_fun(dns:rr(), dns:rr()) -> boolean().
+sort_fun(#dns_rr{type = ?DNS_TYPE_CNAME, data = #dns_rrdata_cname{dname=Name}},
+         #dns_rr{type = ?DNS_TYPE_CNAME, name = Name}) ->
+  true;
+sort_fun(#dns_rr{type = ?DNS_TYPE_CNAME, name = Name},
+         #dns_rr{type = ?DNS_TYPE_CNAME, data = #dns_rrdata_cname{dname=Name}}) ->
+  false;
+sort_fun(#dns_rr{type = ?DNS_TYPE_CNAME}, #dns_rr{}) ->
+  true;
+sort_fun(#dns_rr{}, #dns_rr{type = ?DNS_TYPE_CNAME}) ->
+  false;
+sort_fun(A, B) ->
+  A =< B.
 
 %% No SOA was found for the Qname so we return the root hints
 %% Note: it seems odd that we are indicating we are authoritative here.
