@@ -1,19 +1,20 @@
+% -*- mode: Erlang; -*-
 {application, erldns,
  [{description, "Erlang Authoritative DNS Server"},
   {vsn, "1.0.0"},
+  {licenses, ["MIT"]},
   {mod, { erldns_app, []}},
   {applications, [kernel,
                   stdlib,
                   inets,
                   crypto,
                   lager,
-                  dns,
+                  dns_erlang,
                   jsx,
                   ssl,
                   mnesia,
                   bear,
                   folsom,
-                  iso8601,
-                  poolboy]},
+                  iso8601]},
   {start_phases, [{post_start, []}]}
   ]}.
