@@ -22,7 +22,9 @@
 -include_lib("dns_erlang/include/dns.hrl").
 -include("erldns.hrl").
 
--export([start_link/0, register_handler/2, get_handlers/0, handle/2]).
+-define(DEFAULT_HANDLER_VERSION, 1).
+
+-export([start_link/0, register_handler/2, register_handler/3, get_handlers/0, get_versioned_handlers/0, handle/2]).
 
 -export([do_handle/2]).
 
@@ -48,13 +50,25 @@ start_link() ->
 %% @doc Register a record handler.
 -spec register_handler([dns:type()], module()) -> ok.
 register_handler(RecordTypes, Module) ->
-  gen_server:call(?MODULE, {register_handler, RecordTypes, Module}).
+  register_handler(RecordTypes, Module, ?DEFAULT_HANDLER_VERSION).
 
-%% @doc Get all registered handlers along with the DNS types they handle.
+%% @doc Register a record handler with version.
+-spec register_handler([dns:type()], module(), integer()) -> ok.
+register_handler(RecordTypes, Module, Version) ->
+  gen_server:call(?MODULE, {register_handler, RecordTypes, Module, Version}).
+
+%% @doc Get all registered handlers along with the DNS types they handle 
 -spec get_handlers() -> [{module(), [dns:type()]}].
 get_handlers() ->
-  gen_server:call(?MODULE, {get_handlers}).
+  Handlers  = gen_server:call(?MODULE, {get_handlers}),
+  % return only Version 1 handlers 
+  % strip version information for Version handlers 
+  [erlang:delete_element(3, X) || X <- Handlers, element(3, X) =:= ?DEFAULT_HANDLER_VERSION].
 
+%% @doc Get all registered handlers along with the DNS types they handle and associated versions
+-spec get_versioned_handlers() -> [{module(), [dns:type()], integer()}].
+get_versioned_handlers() ->
+  gen_server:call(?MODULE, {get_handlers}).
 
 % gen_server callbacks
 
@@ -63,7 +77,10 @@ init([]) ->
 
 handle_call({register_handler, RecordTypes, Module}, _, State) ->
   lager:info("Registered handler (module: ~p, types: ~p)", [Module, RecordTypes]),
-  {reply, ok, State#state{handlers = State#state.handlers ++ [{Module, RecordTypes}]}};
+  {reply, ok, State#state{handlers = State#state.handlers ++ [{Module, RecordTypes, 1}]}};
+handle_call({register_handler, RecordTypes, Module, Version}, _, State) ->
+  lager:info("Registered handler (module: ~p, types: ~p, version: ~p)", [Module, RecordTypes, Version]),
+  {reply, ok, State#state{handlers = State#state.handlers ++ [{Module, RecordTypes, Version}]}};
 handle_call({get_handlers}, _, State) ->
   {reply, State#state.handlers, State}.
 
