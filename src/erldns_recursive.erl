@@ -8,7 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(erldns_recursive).
 
--include_lib("dns/include/dns.hrl").
+-include_lib("dns_erlang/include/dns.hrl").
 -include("erldns.hrl").
 
 -export([resolve/3]).
