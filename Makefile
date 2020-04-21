@@ -1,24 +1,10 @@
-REBAR:=$(shell which rebar3 || echo ./rebar3)
-REBAR_URL:="https://s3.amazonaws.com/rebar3/rebar3"
+PROJECT = erldns
+PROJECT_DESCRIPTION = Serve DNS authoritative responses... with Erlang.
+PROJECT_VERSION = 1.0.0
 
-all: clean build
+DEPS = lager recon folsom jsx iso8601
+LOCAL_DEPS = dns_erlang
 
-$(REBAR):
-	wget $(REBAR_URL) && chmod +x rebar3
+TEST_DEPS = proper
 
-build: $(REBAR)
-	$(REBAR) compile
-
-release: $(REBAR)
-	$(REBAR) release
-
-fresh: $(REBAR)
-	rm -Rf _build
-	$(REBAR) clean
-
-clean: $(REBAR)
-	$(REBAR) clean
-
-test: $(REBAR)
-	$(REBAR) eunit
-	$(REBAR) dialyzer
+include erlang.mk

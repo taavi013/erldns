@@ -4,6 +4,7 @@
   {vsn, "1.0.0"},
   {licenses, ["MIT"]},
   {mod, { erldns_app, []}},
+  {modules, []},
   {applications, [kernel,
                   stdlib,
                   inets,
