@@ -8,10 +8,23 @@
 %%%-------------------------------------------------------------------
 -module(erldns_recursive).
 
+-behaviour(gen_server).
+
 -include_lib("dns_erlang/include/dns.hrl").
 -include("erldns.hrl").
 
--export([resolve/3]).
+-export([start_link/0, resolve/3]).
+
+% Gen server hooks
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3
+        ]).
+
+-record(state, {}).
 
 %% @doc Resolve the question in the message
 -spec resolve(Messaga :: dns:message(), AuthorityRecords :: [dns:rr()], Host :: dns:ip()) -> dns:message().
@@ -32,4 +45,28 @@ resolve(Message, AuthorityRecords, Host, Question) ->
     lager:debug("Recursive resolution: AuthorityRecords => ~p~n", [AuthorityRecords]),
     lager:debug("Recursive resolution: Host => ~p~n", [Host]),
     lager:debug("Recursive resolution: Question => ~p~n", [Question]),
+    gen_server:call(?MODULE, {resolve, Message, AuthorityRecords, Host, Question}),
     Message#dns_message{ra = false, ad = false, cd = false, rc = ?DNS_RCODE_REFUSED}.
+
+%% @doc Start recursive resolver
+-spec start_link() -> {ok, pid()} | {error, any()}.
+start_link() ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
+% gen_server callbacks
+init([]) ->
+    lager:info("Starting ~p", [?MODULE]),
+    {ok, #state{}}.
+
+handle_call({resolve, Message, AuthorityRecords, Host, Question} = Msg, _, State) ->
+    lager:debug("Got => ~p, State => ~p", [Msg, State]),
+    {reply, {error, not_implemented}, State}.
+
+handle_cast(_, State) ->
+  {noreply, State}.
+handle_info(_, State) ->
+  {noreply, State}.
+terminate(_, _) ->
+  ok.
+code_change(_PreviousVersion, State, _Extra) ->
+  {ok, State}.
