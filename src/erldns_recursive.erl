@@ -24,7 +24,12 @@
          code_change/3
         ]).
 
--record(state, {}).
+-define(DNS_PORT, 53).
+
+-record(state, {
+                upstream_resolver_socket,
+                from
+               }).
 
 %% @doc Resolve the question in the message
 -spec resolve(Messaga :: dns:message(), AuthorityRecords :: [dns:rr()], Host :: dns:ip()) -> dns:message().
@@ -45,8 +50,8 @@ resolve(Message, AuthorityRecords, Host, Question) ->
     lager:debug("Recursive resolution: AuthorityRecords => ~p~n", [AuthorityRecords]),
     lager:debug("Recursive resolution: Host => ~p~n", [Host]),
     lager:debug("Recursive resolution: Question => ~p~n", [Question]),
-    gen_server:call(?MODULE, {resolve, Message, AuthorityRecords, Host, Question}),
-    Message#dns_message{ra = false, ad = false, cd = false, rc = ?DNS_RCODE_REFUSED}.
+    {ok, Result} = gen_server:call(?MODULE, {resolve, Message, AuthorityRecords, Host, Question}),
+    Result.
 
 %% @doc Start recursive resolver
 -spec start_link() -> {ok, pid()} | {error, any()}.
@@ -56,17 +61,26 @@ start_link() ->
 % gen_server callbacks
 init([]) ->
     lager:info("Starting ~p", [?MODULE]),
-    {ok, #state{}}.
+    {ok, Socket} = gen_udp:open(0, [binary, {active, true}]),
+    {ok, #state{upstream_resolver_socket = Socket}}.
 
-handle_call({resolve, Message, AuthorityRecords, Host, Question} = Msg, _, State) ->
+% resolve, original query in variable Message
+handle_call({resolve, Message, AuthorityRecords, Host, Question} = Msg, From, State) ->
     lager:debug("Got => ~p, State => ~p", [Msg, State]),
-    {reply, {error, not_implemented}, State}.
+    Packet = dns:encode_message(Message),
+    lager:debug("Packet => ~p", [Packet]),
+    ok = gen_udp:send(State#state.upstream_resolver_socket, "1.1.1.1", ?DNS_PORT, Packet),
+    {noreply, State#state{from=From}}.
 
 handle_cast(_, State) ->
-  {noreply, State}.
-handle_info(_, State) ->
-  {noreply, State}.
+    {noreply, State}.
+handle_info({udp, _Socket, _IP, _InPortNo, Packet} = Info, State) ->
+    lager:debug("~s: Got => ~p", [?FUNCTION_NAME, Info]),
+    Decoded = dns:decode_message(Packet),
+    lager:debug("Decoded Message => ~p", [Decoded]),
+    gen_server:reply(State#state.from, {ok, Decoded}),
+    {noreply, State}.
 terminate(_, _) ->
-  ok.
+    ok.
 code_change(_PreviousVersion, State, _Extra) ->
-  {ok, State}.
+    {ok, State}.

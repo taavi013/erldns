@@ -152,14 +152,15 @@ handle_message(Message, Host) ->
 handle_packet_cache_miss(Message, [], Host) ->
   lager:debug("Message => ~p~n", [Message]),
   {Authority, Additional} = erldns_records:root_hints(),
-  erldns_recursive:resolve(Message, Authority, Host),
-  case erldns_config:use_root_hints() of
-    true ->
-      Message#dns_message{aa = false, rc = ?DNS_RCODE_REFUSED, authority = Authority, additional = Additional};
-    _ ->
-      lager:debug("No SOA record in cache for ~p", [Message]),
-      Message#dns_message{aa = false, rc = ?DNS_RCODE_REFUSED}
-  end;
+  ResponseMessage = erldns_recursive:resolve(Message, Authority, Host),
+  ResponseMessage;
+%  case erldns_config:use_root_hints() of
+%    true ->
+%      Message#dns_message{aa = false, rc = ?DNS_RCODE_REFUSED, authority = Authority, additional = Additional};
+%    _ ->
+%      lager:debug("No SOA record in cache for ~p", [Message]),
+%      Message#dns_message{aa = false, rc = ?DNS_RCODE_REFUSED}
+%  end;
 
 %% The packet is not in the cache yet we are authoritative, so try to resolve
 %% the request. This is the point the request moves on to the erldns_resolver
