@@ -66,7 +66,6 @@ init([]) ->
 
 % resolve, original query in variable Message
 handle_call({resolve, Message, AuthorityRecords, Host, Question} = Msg, From, State) ->
-    lager:debug("Got => ~p, State => ~p", [Msg, State]),
     Packet = dns:encode_message(Message),
     lager:debug("Packet => ~p", [Packet]),
     ok = gen_udp:send(State#state.upstream_resolver_socket, "1.1.1.1", ?DNS_PORT, Packet),
@@ -75,12 +74,21 @@ handle_call({resolve, Message, AuthorityRecords, Host, Question} = Msg, From, St
 handle_cast(_, State) ->
     {noreply, State}.
 handle_info({udp, _Socket, _IP, _InPortNo, Packet} = Info, State) ->
-    lager:debug("~s: Got => ~p", [?FUNCTION_NAME, Info]),
     Decoded = dns:decode_message(Packet),
-    lager:debug("Decoded Message => ~p", [Decoded]),
+    lager:debug("Decoded Response Message => ~p", [Decoded]),
     gen_server:reply(State#state.from, {ok, Decoded}),
     {noreply, State}.
 terminate(_, _) ->
     ok.
 code_change(_PreviousVersion, State, _Extra) ->
     {ok, State}.
+
+%% @doc For testing purpose ensure that TTL is always 120
+rewrite_ttl(Packet, NewTtl) ->
+    Answers = Packet#dns_message.answers,
+    NewAnswers = lists:map( fun(R) when is_record(R, dns_rr)->
+                                    R#dns_rr{ttl = NewTtl};
+                               (X) ->
+                                    X
+                            end, Answers),
+    Packet#dns_message{answers = NewAnswers}.
