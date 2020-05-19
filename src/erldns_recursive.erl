@@ -28,7 +28,8 @@
 
 -record(state, {
                 upstream_resolver_socket,
-                from
+                from,
+                record_defs
                }).
 
 %% @doc Resolve the question in the message
@@ -50,7 +51,8 @@ resolve(Message, AuthorityRecords, Host, Question) ->
     lager:debug("Recursive resolution: AuthorityRecords => ~p~n", [AuthorityRecords]),
     lager:debug("Recursive resolution: Host => ~p~n", [Host]),
     lager:debug("Recursive resolution: Question => ~p~n", [Question]),
-    {ok, Result} = gen_server:call(?MODULE, {resolve, Message, AuthorityRecords, Host, Question}),
+    {ok, Result} = gen_server:call(?MODULE, {resolve, Message, AuthorityRecords, Host, Question}, infinity),
+    lager:debug("RESULT => ~p", [Result]),
     Result.
 
 %% @doc Start recursive resolver
@@ -60,24 +62,49 @@ start_link() ->
 
 % gen_server callbacks
 init([]) ->
-    lager:info("Starting ~p", [?MODULE]),
+    lager:info("Starting ~p, XXXXXX ~p", [?MODULE, file:get_cwd()]),
     {ok, Socket} = gen_udp:open(0, [binary, {active, true}]),
-    {ok, #state{upstream_resolver_socket = Socket}}.
+    {ok, RecordDefs} = pp_record:read("../../apps/dns_erlang/include/dns_records.hrl"),
+    {ok, #state{upstream_resolver_socket = Socket,
+                record_defs = RecordDefs}}.
 
 % resolve, original query in variable Message
 handle_call({resolve, Message, AuthorityRecords, Host, Question} = Msg, From, State) ->
-    Packet = dns:encode_message(Message),
+    MessageToSend = Message#dns_message{qr=false,
+                                        aa=false,
+                                        tc=false,
+                                        rd=true,
+                                        ra=false,
+                                        ad=true,
+                                        cd=false,
+                                        qc = 1,
+                                        additional=[#dns_optrr{}]
+                                       },
+    Packet = dns:encode_message(MessageToSend),
     lager:debug("Packet => ~p", [Packet]),
+    Decoded = dns:decode_message(Packet),
+    Nice = pp_record:print(Decoded, State#state.record_defs),
+    lager:debug("Nice to send => ~s", [Nice]),
     ok = gen_udp:send(State#state.upstream_resolver_socket, "1.1.1.1", ?DNS_PORT, Packet),
+    %ok = gen_udp:send(State#state.upstream_resolver_socket, "8.8.8.8", ?DNS_PORT, Packet),
     {noreply, State#state{from=From}}.
 
 handle_cast(_, State) ->
     {noreply, State}.
+
 handle_info({udp, _Socket, _IP, _InPortNo, Packet} = Info, State) ->
+    lager:debug("Got info => ~p", [Info]),
     Decoded = dns:decode_message(Packet),
-    lager:debug("Decoded Response Message => ~p", [Decoded]),
+    lager:debug("Decoded raw => ~p", [Decoded]),
+    Nice = pp_record:print(Decoded, State#state.record_defs),
+    lager:debug("Decoded Response Message => ~s", [Nice]),
     gen_server:reply(State#state.from, {ok, Decoded}),
+    cache_response(Decoded),
+    {noreply, State};
+handle_info(Info, State) ->
+    lager:debug("Got info2 => ~p", [Info]),
     {noreply, State}.
+
 terminate(_, _) ->
     ok.
 code_change(_PreviousVersion, State, _Extra) ->
@@ -92,3 +119,16 @@ rewrite_ttl(Packet, NewTtl) ->
                                     X
                             end, Answers),
     Packet#dns_message{answers = NewAnswers}.
+
+google_query() ->
+    X = [
+    16#1e,16#e3,16#01,16#20,16#00,16#01,16#00,16#00,16#00,16#00,16#00,16#01,16#02,16#6e,16#73,16#06,
+    16#75,16#6e,16#69,16#6e,16#65,16#74,16#02,16#65,16#65,16#00,16#00,16#01,16#00,16#01,16#00,16#00,
+    16#29,16#10,16#00,16#00,16#00,16#00,16#00,16#00,16#00],
+    Y = list_to_binary(X),
+    Decoded = dns:decode_message(Y).
+
+%% Put response message to cache
+cache_response(Message) ->
+    erldns_packet_cache:put({Message#dns_message.questions, hd(Message#dns_message.additional)}, Message),
+    Message.
