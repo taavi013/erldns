@@ -151,7 +151,7 @@ handle_message(Message, Host) ->
 -spec(handle_packet_cache_miss(Message :: dns:message(), AuthorityRecords :: dns:authority(), Host :: dns:ip()) -> dns:message()).
 handle_packet_cache_miss(Message, [], Host) ->
   lager:debug("Message => ~p~n", [Message]),
-  {Authority, Additional} = erldns_records:root_hints(),
+  {Authority, _Additional} = erldns_records:root_hints(),
   ResponseMessage = erldns_recursive:resolve(Message, Authority, Host),
   ResponseMessage;
 %  case erldns_config:use_root_hints() of

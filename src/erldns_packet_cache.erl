@@ -56,6 +56,7 @@ get(Key) ->
 %% by the given host.
 -spec get(dns:question() | {dns:question(), [dns:rr()]}, dns:ip()) -> {ok, dns:message()} | {error, cache_expired} | {error, cache_miss}.
 get(Key, _Host) ->
+ lager:debug("get KEY => ~p", [Key]),
   case erldns_storage:select(packet_cache, Key) of
     [{Key, {Response, ExpiresAt}}] ->
       case timestamp() > ExpiresAt of
@@ -74,6 +75,7 @@ get(Key, _Host) ->
 %% @doc Put the response in the cache for the given question.
 -spec put(dns:question() | {dns:question(), [dns:rr()]}, dns:message()) -> ok.
 put(Key, Response) ->
+  lager:debug("put KEY => ~p", [Key]),
   case erldns_config:packet_cache_enabled() of
     true ->
       gen_server:call(?SERVER, {set_packet, [Key, Response]});

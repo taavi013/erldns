@@ -63,7 +63,7 @@ handle_call({query, _Query}, _From, #state{connection=ConnPid, query_string=Quer
 			   qc = 1, anc = 0, auc = 0, adc = 0,
 			   questions = Questions, 
 			   answers = [],
-			   authority = [], additional = []},
+			   authority = [], additional = [DnsOpt]},
     Encoded = dns:encode_message(Message),
     % Jama = <<171,205,001,000,000,001,000,000,000,000,000,000,003,119,119,119,007,101,120,097,109,112,108,101,003,099,111,109,000,000,001,000,001>>,
     Body = Encoded,

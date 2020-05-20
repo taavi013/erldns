@@ -15,6 +15,12 @@
 
 -export([start_link/0, resolve/3]).
 
+%% Supress some warnings/errors
+-compile([{nowarn_unused_function, [{rewrite_ttl,2},
+                                    {google_query,0}
+                                    ]
+          }]).
+
 % Gen server hooks
 -export([init/1,
          handle_call/3,
@@ -69,7 +75,7 @@ init([]) ->
                 record_defs = RecordDefs}}.
 
 % resolve, original query in variable Message
-handle_call({resolve, Message, AuthorityRecords, Host, Question} = Msg, From, State) ->
+handle_call({resolve, Message, _AuthorityRecords, _Host, _Question} = _Msg, From, State) ->
     MessageToSend = Message#dns_message{qr=false,
                                         aa=false,
                                         tc=false,
@@ -126,7 +132,8 @@ google_query() ->
     16#75,16#6e,16#69,16#6e,16#65,16#74,16#02,16#65,16#65,16#00,16#00,16#01,16#00,16#01,16#00,16#00,
     16#29,16#10,16#00,16#00,16#00,16#00,16#00,16#00,16#00],
     Y = list_to_binary(X),
-    Decoded = dns:decode_message(Y).
+    Decoded = dns:decode_message(Y),
+    Decoded.
 
 %% Put response message to cache
 cache_response(Message) ->
