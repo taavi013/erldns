@@ -16,6 +16,8 @@
                   mnesia,
                   bear,
                   folsom,
-                  iso8601]},
+                  iso8601,
+                  pp_record]},
+  {registered, []},
   {start_phases, [{post_start, []}]}
   ]}.

@@ -2,8 +2,9 @@ PROJECT = erldns
 PROJECT_DESCRIPTION = Serve DNS authoritative responses... with Erlang.
 PROJECT_VERSION = 1.0.0
 
-DEPS = lager recon folsom jsx iso8601
+DEPS = lager recon folsom jsx iso8601 pp_record
 LOCAL_DEPS = dns_erlang
+dep_pp_record = git git@github.com:sata/pp_record.git master
 
 TEST_DEPS = proper
 
